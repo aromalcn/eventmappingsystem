@@ -1,0 +1,767 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.leaflet-draw-actions {
+    display: none !important;
+}
+</style>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.css"/>
+
+<div class="auth-container">
+    <div class="auth-card" style="max-width: 800px;">
+        <h2>{% if is_edit %}Edit Event{% else %}Add New Event{% endif %}</h2>
+        <p>{% if is_edit %}Update the details below.{% else %}Fill in the details below to map a new event.{% endif %}</p>
+        
+        <form method="post">
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <ul class="errorlist">
+                    {% for error in form.non_field_errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            {% endif %}
+
+            <div style="display: flex; gap: 20px; flex-wrap: wrap;">
+                <div style="flex: 1; min-width: 300px;">
+                    <!-- Map Picker -->
+                    <div style="margin-bottom: 20px; position: relative;">
+                        <label style="display: block; margin-bottom: 8px; font-weight: 600; color: #302b63;">Pin Location on Map</label>
+                        <div id="map-picker" style="height: 400px; width: 100%; border-radius: 10px; border: 2px solid #ccc;"></div>
+                        <button id="locate-btn" type="button" title="Show My Location" style="position: absolute; bottom: 20px; right: 10px; z-index: 1000; background: white; border: none; border-radius: 50%; width: 40px; height: 40px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#302b63" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+                            </svg>
+                        </button>
+                        <small class="helptext">Click to pin. Use the toolbar on the left to draw a custom boundary.</small>
+                    </div>
+
+                     <!-- Boundary Tools -->
+                    <div style="background: #f9f9f9; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #ddd;">
+                        <h4 style="margin-top: 0; color: #302b63;">Define Boundary Area</h4>
+                        
+                        <div style="margin-bottom: 15px;">
+                            <label style="font-weight: 600;">Option 1: Draw on Map</label>
+                            <p style="font-size: 0.9rem; color: #666; margin: 5px 0;">Use the polygon or rectangle icon on the map toolbar.</p>
+                        </div>
+                        
+                        <hr style="border-top: 1px solid #ddd; margin: 15px 0;">
+
+                        <div>
+                            <label style="font-weight: 600;">Option 2: Dimensions from Pin</label>
+                            <div style="display: flex; gap: 10px; margin-top: 10px;">
+                                <input type="number" id="boundary-length" placeholder="Length (m)" style="margin-bottom: 0;">
+                                <input type="number" id="boundary-width" placeholder="Width (m)" style="margin-bottom: 0;">
+                                <button type="button" id="generate-boundary-btn" class="btn-primary" style="padding: 10px 15px; font-size: 0.9rem; white-space: nowrap; border-radius: 9999px;">Generate</button>
+                            </div>
+                        </div>
+
+                         <div style="margin-top: 10px;">
+                            <button type="button" id="manual-save-boundary-btn" class="btn-primary" style="padding: 10px 15px; font-size: 0.9rem; width: 100%; border-radius: 9999px; display: none;">✓ Save Boundary Changes</button>
+                        </div>
+                        
+                        <div style="margin-top: 10px;">
+                            <button type="button" id="clear-boundary-btn" style="color: #e74c3c; background: none; border: none; cursor: pointer; text-decoration: none; font-size: 0.9rem;">Clear Boundary</button>
+                        </div>
+                    </div>
+
+                    <!-- Subsections Panel -->
+                    <div style="background: #f9f9f9; padding: 15px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #ddd;">
+                        <h4 style="margin-top: 0; color: #302b63;">Event Subsections (Stages/Areas)</h4>
+                        
+                        <div id="subsections-list" style="margin-bottom: 15px;">
+                            <!-- Subsections will be listed here -->
+                        </div>
+                        
+                        <div style="border-top: 1px solid #ddd; padding-top: 15px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <label style="font-weight: 600; display: block; margin: 0;">Add New Subsection</label>
+                                <button type="button" id="add-subsection-toggle" style="width: 30px; height: 30px; border-radius: 50%; border: none; background: #302b63; color: white; font-size: 1.2rem; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 5px rgba(0,0,0,0.2); transition: transform 0.2s;" title="Add Subsection">+</button>
+                            </div>
+
+                            <div id="subsection-form-container" style="display: none; background: white; padding: 15px; border-radius: 8px; border: 1px solid #eee; margin-top: 10px;">
+                                <input type="text" id="subsection-name" placeholder="e.g., Main Stage, Food Court" style="margin-bottom: 10px; width: 100%; box-sizing: border-box;" />
+                                <textarea id="subsection-description" placeholder="Optional description" rows="2" style="margin-bottom: 10px; width: 100%; box-sizing: border-box;"></textarea>
+                                
+                                <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                                    <label style="font-weight: 600;">Color:</label>
+                                    <input type="color" id="subsection-color" value="#ef4444" style="width: 50px; height: 35px; border: none; cursor: pointer;" />
+                                    <div style="display: flex; gap: 5px;">
+                                        <button type="button" class="color-preset" data-color="#ef4444" style="width: 25px; height: 25px; background: #ef4444; border: 2px solid #ddd; border-radius: 4px; cursor: pointer;"></button>
+                                        <button type="button" class="color-preset" data-color="#22c55e" style="width: 25px; height: 25px; background: #22c55e; border: 2px solid #ddd; border-radius: 4px; cursor: pointer;"></button>
+                                        <button type="button" class="color-preset" data-color="#3b82f6" style="width: 25px; height: 25px; background: #3b82f6; border: 2px solid #ddd; border-radius: 4px; cursor: pointer;"></button>
+                                        <button type="button" class="color-preset" data-color="#eab308" style="width: 25px; height: 25px; background: #eab308; border: 2px solid #ddd; border-radius: 4px; cursor: pointer;"></button>
+                                        <button type="button" class="color-preset" data-color="#a855f7" style="width: 25px; height: 25px; background: #a855f7; border: 2px solid #ddd; border-radius: 4px; cursor: pointer;"></button>
+                                        <button type="button" class="color-preset" data-color="#f97316" style="width: 25px; height: 25px; background: #f97316; border: 2px solid #ddd; border-radius: 4px; cursor: pointer;"></button>
+                                    </div>
+                                </div>
+                                
+                                <button type="button" id="draw-subsection-btn" class="btn-primary" style="padding: 10px 15px; font-size: 0.9rem; width: 100%; border-radius: 9999px;">📍 Draw Subsection Boundary</button>
+                                <p style="font-size: 0.85rem; color: #666; margin: 5px 0 0 0;">Draw a polygon on the map, then click "Save Subsection"</p>
+                                <button type="button" id="save-subsection-btn" class="btn-primary" style="padding: 10px 15px; font-size: 0.9rem; width: 100%; margin-top: 10px; display: none; border-radius: 9999px;">✓ Save Subsection</button>
+                            </div>
+                        </div>
+                        
+                        <!-- Hidden field to store subsections JSON -->
+                        <input type="hidden" id="subsections-data" name="subsections_data" value="[]" />
+                    </div>
+                </div>
+
+                <div style="flex: 1; min-width: 300px;">
+                     {% for field in form %}
+                        <div class="form-group" style="text-align: left; margin-bottom: 20px;">
+                            <label for="{{ field.id_for_label }}" style="display: block; margin-bottom: 8px; font-weight: 600; color: #302b63;">{{ field.label }}</label>
+                            {{ field }}
+                            {% if field.help_text %}
+                                <small class="helptext">{{ field.help_text }}</small>
+                            {% endif %}
+                            {% if field.errors %}
+                                <ul class="errorlist">
+                                    {% for error in field.errors %}
+                                        <li>{{ error }}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% endif %}
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <button type="submit" class="btn btn-primary auth-btn">{% if is_edit %}Save Changes{% else %}Add Event{% endif %}</button>
+        </form>
+        <div style="margin-top: 20px;">
+            <a href="{% url 'map_home' %}" style="text-decoration: none;">Back to Map</a>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.draw/1.0.4/leaflet.draw.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- Custom Dropdown Logic ---
+        const categorySelect = document.querySelector('#id_category');
+        if (categorySelect) {
+            // Create wrapper
+            const wrapper = document.createElement('div');
+            wrapper.className = 'custom-select-wrapper';
+            wrapper.innerHTML = `
+                <div class="custom-select">
+                    <div class="custom-select__trigger"><span>${categorySelect.options[categorySelect.selectedIndex].text}</span></div>
+                    <div class="custom-options"></div>
+                </div>
+            `;
+            
+            // Insert wrapper after select
+            categorySelect.parentNode.insertBefore(wrapper, categorySelect.nextSibling);
+
+            // Hide original select but keep it functioning
+            categorySelect.style.display = 'none';
+            
+            // Populate options
+            const customOptions = wrapper.querySelector('.custom-options');
+            const customSelect = wrapper.querySelector('.custom-select');
+            const trigger = wrapper.querySelector('.custom-select__trigger');
+            const triggerSpan = trigger.querySelector('span');
+            
+            // Fix: update trigger class in HTML above to match CSS .custom-select-trigger
+            trigger.className = 'custom-select-trigger';
+
+            Array.from(categorySelect.options).forEach(option => {
+                if (option.value === '') return; // Skip placeholder if empty value
+                
+                const customOption = document.createElement('div');
+                customOption.className = 'custom-option';
+                if (option.selected) customOption.classList.add('selected');
+                customOption.dataset.value = option.value;
+                customOption.textContent = option.text;
+                
+                customOption.addEventListener('click', function() {
+                    // Update original select
+                    categorySelect.value = this.dataset.value;
+                    
+                    // Update trigger text
+                    triggerSpan.textContent = this.textContent;
+                    
+                    // Update selected styling
+                    wrapper.querySelectorAll('.custom-option').forEach(opt => opt.classList.remove('selected'));
+                    this.classList.add('selected');
+                    
+                    // Close dropdown
+                    customSelect.classList.remove('open');
+                });
+                
+                customOptions.appendChild(customOption);
+            });
+            
+            // Toggle dropdown
+            trigger.addEventListener('click', function(e) {
+                e.preventDefault(); // Prevent accidental form submission actions
+                e.stopPropagation(); // Stop bubbling
+                customSelect.classList.toggle('open');
+            });
+            
+            // Close when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!wrapper.contains(e.target)) {
+                    customSelect.classList.remove('open');
+                }
+            });
+        }
+        // --- End Custom Dropdown Logic ---
+
+        // Initialize map
+        var map = L.map('map-picker').setView([20.5937, 78.9629], 5);
+        
+        L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        }).addTo(map);
+
+        // Geolocation Logic
+        var locateBtn = document.getElementById('locate-btn');
+        var userLocationMarker = null;
+
+        locateBtn.addEventListener('click', function() {
+            locateBtn.innerHTML = '<span class="loader" style="border: 2px solid #f3f3f3; border-top: 2px solid #302b63; border-radius: 50%; width: 16px; height: 16px; animation: spin 1s linear infinite; display: inline-block;"></span>';
+            map.locate({setView: true, maxZoom: 16});
+        });
+
+        map.on('locationfound', function(e) {
+            locateBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#302b63" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+                </svg>`;
+            
+            if (userLocationMarker) {
+                map.removeLayer(userLocationMarker);
+            }
+
+            userLocationMarker = L.circleMarker(e.latlng, {
+                radius: 6,
+                fillColor: "#e74c3c",
+                color: "#302b63",
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
+            }).addTo(map);
+            
+            // Optional: Auto-place event pin at user location?
+            // Let's just center view and let user click to confirm logic.
+        });
+
+        map.on('locationerror', function(e) {
+             locateBtn.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>`;
+            showCustomAlert("Location access denied.", "Access Denied");
+        });
+
+        var mapMarker;
+        var drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
+        var currentPolygon = null;
+
+        var latInput = document.getElementById('id_latitude');
+        var lngInput = document.getElementById('id_longitude');
+        var boundaryInput = document.getElementById('id_boundary_coordinates');
+
+        // Draw Controls
+        var editableSubsectionGroup = new L.FeatureGroup();
+        map.addLayer(editableSubsectionGroup);
+
+        // Draw Controls
+        var mainDrawControl = new L.Control.Draw({
+            draw: {
+                polygon: true,
+                rectangle: true,
+                circle: false,
+                marker: false,
+                polyline: false,
+                circlemarker: false
+            },
+            edit: {
+                featureGroup: drawnItems
+            }
+        });
+        
+        var subsectionDrawControl = new L.Control.Draw({
+            draw: {
+                polygon: true,
+                rectangle: true,
+                circle: false,
+                marker: false,
+                polyline: false,
+                circlemarker: false
+            },
+            edit: {
+                featureGroup: editableSubsectionGroup
+            }
+        });
+
+        // Start with main control
+        map.addControl(mainDrawControl);
+
+        function switchControlMode(mode) {
+            map.removeControl(mainDrawControl);
+            map.removeControl(subsectionDrawControl);
+            
+            if (mode === 'subsection') {
+                map.addControl(subsectionDrawControl);
+            } else {
+                map.addControl(mainDrawControl);
+            }
+        }
+
+        // Helper: Place Marker
+        function placeMarker(lat, lng) {
+            if (mapMarker) {
+                mapMarker.setLatLng([lat, lng]);
+            } else {
+                mapMarker = L.marker([lat, lng], {draggable: true}).addTo(map);
+                
+                // Update inputs on drag end
+                mapMarker.on('dragend', function(event) {
+                    var marker = event.target;
+                    var position = marker.getLatLng();
+                    latInput.value = position.lat.toFixed(6);
+                    lngInput.value = position.lng.toFixed(6);
+                });
+            }
+            latInput.value = lat.toFixed(6);
+            lngInput.value = lng.toFixed(6);
+        }
+
+        // Helper: Place Boundary
+        function setBoundary(layer) {
+             // Only remove previous if it's a different layer
+             if (currentPolygon && currentPolygon !== layer) {
+                drawnItems.removeLayer(currentPolygon);
+            }
+            currentPolygon = layer;
+            
+            // Add to feature group if not present
+            if (!drawnItems.hasLayer(layer)) {
+                drawnItems.addLayer(layer);
+            }
+            
+            updateBoundaryInput(layer);
+            
+            // Show save button for manual confirmation
+            document.getElementById('manual-save-boundary-btn').style.display = 'block';
+        }
+
+        // Manual Save Boundary Button
+        document.getElementById('manual-save-boundary-btn').addEventListener('click', function() {
+            if (currentPolygon) {
+                updateBoundaryInput(currentPolygon);
+                showCustomAlert("Main boundary saved successfully!", "Boundary Saved");
+                this.style.display = 'none'; // Hide after saving
+            } else {
+                showCustomAlert("No boundary to save.", "Error");
+            }
+        });
+
+        function updateBoundaryInput(layer) {
+            // Extract coordinates
+            var latlngs;
+            if (layer instanceof L.Rectangle) {
+                 latlngs = layer.getLatLngs()[0]; // Rectangle is a polygon
+            } else if (layer instanceof L.Polygon) {
+                 latlngs = layer.getLatLngs()[0]; // Usually nested array
+                 // If simple polygon, might describe simple array, check structure
+
+            }
+            
+            if (latlngs) {
+                // Format to JSON
+                var coords = latlngs.map(ll => [ll.lat, ll.lng]);
+                boundaryInput.value = JSON.stringify(coords);
+                console.log("Boundary updated:", coords);
+            }
+        }
+
+        // Event: Map Click (Pin)
+        map.on('click', function(e) {
+            // Only pin if not drawing
+            placeMarker(e.latlng.lat, e.latlng.lng);
+        });
+
+        // Event: Draw Created
+        map.on(L.Draw.Event.CREATED, function (e) {
+            var layer = e.layer;
+            
+            // Check if we're in subsection mode
+            if (document.getElementById('save-subsection-btn').style.display === 'block') {
+                console.log("Subsection draw created");
+                currentSubsectionPolygon = layer;
+                
+                // Set color from input
+                const color = document.getElementById('subsection-color').value;
+                layer.setStyle({ color: color, fillColor: color });
+                
+                // Add to map temporarily for visualization
+                editableSubsectionGroup.addLayer(layer);
+            } else {
+                console.log("Main boundary draw created");
+                // Regular boundary
+                setBoundary(layer);
+                document.getElementById('manual-save-boundary-btn').style.display = 'block';
+            }
+        });
+        map.on(L.Draw.Event.EDITED, function (e) {
+             console.log("Draw edited event fired");
+             e.layers.eachLayer(function(layer) {
+                console.log("Processing edited layer");
+                // Check if this is the main boundary
+                if (drawnItems.hasLayer(layer)) {
+                    updateBoundaryInput(layer);
+                    document.getElementById('manual-save-boundary-btn').style.display = 'block';
+                }
+                // If it's a subsection layer, it's already updated in the group object (reference)
+                // We just need to make sure we capture it on save
+             });
+        });
+
+        // Event: Draw Deleted
+         map.on(L.Draw.Event.DELETED, function (e) {
+             boundaryInput.value = '';
+             currentPolygon = null;
+        });
+
+        // Boundary Generation Logic
+        document.getElementById('generate-boundary-btn').addEventListener('click', function() {
+             var lat = parseFloat(latInput.value);
+             var lng = parseFloat(lngInput.value);
+             var length = parseFloat(document.getElementById('boundary-length').value);
+             var width = parseFloat(document.getElementById('boundary-width').value);
+
+             if (isNaN(lat) || isNaN(lng) || isNaN(length) || isNaN(width)) {
+                 showCustomAlert("Please set a pin and enter length/width.", "Missing Information");
+                 return;
+             }
+
+             // Approximate conversion: 1 degree lat ~ 111111 meters
+             // 1 degree lng ~ 111111 * cos(lat) meters
+             
+             var halfHeight = (length / 2) / 111111;
+             var halfWidth = (width / 2) / (111111 * Math.cos(lat * Math.PI / 180));
+
+             var bounds = [
+                 [lat - halfHeight, lng - halfWidth], // SouthWest
+                 [lat + halfHeight, lng + halfWidth]  // NorthEast
+             ];
+
+             var rect = L.rectangle(bounds, {color: "#ff7800", weight: 1});
+             setBoundary(rect);
+             map.fitBounds(bounds);
+        });
+
+        // Clear Boundary
+        document.getElementById('clear-boundary-btn').addEventListener('click', function() {
+            if (currentPolygon) {
+                drawnItems.removeLayer(currentPolygon);
+                currentPolygon = null;
+            }
+            boundaryInput.value = '';
+        });
+
+        // Subsection Management
+        let subsections = [];
+        let currentSubsectionPolygon = null;
+        let subsectionLayers = new L.FeatureGroup();
+        map.addLayer(subsectionLayers);
+
+        // Toggle Subsection Form
+        const subsectionFormContainer = document.getElementById('subsection-form-container');
+        document.getElementById('add-subsection-toggle').addEventListener('click', function() {
+            // Toggle visibility
+            if (subsectionFormContainer.style.display === 'none') {
+                subsectionFormContainer.style.display = 'block';
+                this.textContent = '×'; // Change to close icon
+                this.style.background = '#e74c3c'; // Change to red
+                switchControlMode('subsection');
+            } else {
+                subsectionFormContainer.style.display = 'none';
+                this.textContent = '+';
+                this.style.background = '#302b63';
+                switchControlMode('main');
+                
+                // Also clear any pending subsection edits if cancelling
+                editableSubsectionGroup.clearLayers();
+                document.getElementById('save-subsection-btn').style.display = 'none';
+                currentSubsectionPolygon = null;
+            }
+        });
+
+        // Color preset buttons
+        document.querySelectorAll('.color-preset').forEach(btn => {
+            btn.addEventListener('click', function() {
+                // Remove active class from all
+                document.querySelectorAll('.color-preset').forEach(b => b.style.outline = 'none');
+                
+                // Add active outline to clicked
+                this.style.outline = '2px solid #302b63';
+                this.style.outlineOffset = '2px';
+                
+                document.getElementById('subsection-color').value = this.dataset.color;
+            });
+        });
+
+        // Draw Subsection Boundary
+        document.getElementById('draw-subsection-btn').addEventListener('click', function() {
+            const name = document.getElementById('subsection-name').value.trim();
+            if (!name) {
+                showCustomAlert('Please enter a subsection name first.', 'Name Required');
+                return;
+            }
+            
+            // Enable drawing mode
+            showCustomAlert('Click on the map to draw a polygon for this subsection. Double-click to finish.', 'Draw Boundary');
+            document.getElementById('save-subsection-btn').style.display = 'block';
+        });
+
+
+
+        // Save Subsection
+        document.getElementById('save-subsection-btn').addEventListener('click', function() {
+            const name = document.getElementById('subsection-name').value.trim();
+            const description = document.getElementById('subsection-description').value.trim();
+            const color = document.getElementById('subsection-color').value;
+
+            if (!name) {
+                showCustomAlert('Please enter a subsection name.', 'Name Required');
+                return;
+            }
+
+            if (!currentSubsectionPolygon) {
+                showCustomAlert('Please draw a boundary for this subsection first.', 'Boundary Missing');
+                return;
+            }
+
+            // Get coordinates
+            let latlngs = currentSubsectionPolygon.getLatLngs()[0];
+            const coords = latlngs.map(ll => [ll.lat, ll.lng]);
+
+            // Add to subsections array
+            const subsection = {
+                name: name,
+                description: description,
+                boundary_coordinates: coords,
+                color: color
+            };
+            subsections.push(subsection);
+
+            // Add to map with color
+            const polygon = L.polygon(coords, {
+                color: color,
+                weight: 2,
+                fillColor: color,
+                fillOpacity: 0.2
+            }).addTo(subsectionLayers);
+            
+            polygon.bindPopup(`<b>${name}</b><br>${description || 'No description'}`);
+
+            // Update hidden field
+            document.getElementById('subsections-data').value = JSON.stringify(subsections);
+
+            // Update subsections list
+            updateSubsectionsList();
+
+            // Reset form and hide
+            document.getElementById('subsection-name').value = '';
+            document.getElementById('subsection-description').value = '';
+            document.getElementById('subsection-color').value = '#ef4444';
+            document.getElementById('save-subsection-btn').style.display = 'none';
+            subsectionFormContainer.style.display = 'none'; // Hide form
+            
+            // Reset toggle button
+            const toggleBtn = document.getElementById('add-subsection-toggle');
+            toggleBtn.textContent = '+';
+            toggleBtn.style.background = '#302b63';
+            
+            currentSubsectionPolygon = null;
+            editableSubsectionGroup.clearLayers();
+            switchControlMode('main');
+        });
+
+        function updateSubsectionsList() {
+            const listContainer = document.getElementById('subsections-list');
+            if (subsections.length === 0) {
+                listContainer.innerHTML = '<p style="color: #666; font-size: 0.9rem; font-style: italic;">No subsections added yet.</p>';
+                return;
+            }
+
+            let html = '<div style="display: flex; flex-direction: column; gap: 8px;">';
+            subsections.forEach((sub, index) => {
+                html += `
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 8px; background: white; border-radius: 6px; border: 1px solid #ddd;">
+                        <div style="width: 20px; height: 20px; background: ${sub.color}; border-radius: 4px; border: 1px solid #999;"></div>
+                        <div style="flex: 1;">
+                            <strong>${sub.name}</strong>
+                            ${sub.description ? `<br><small style="color: #666;">${sub.description}</small>` : ''}
+                        </div>
+                        <div style="display: flex; gap: 5px;">
+                            <button type="button" onclick="editSubsection(${index})" style="color: #3b82f6; background: none; border: none; cursor: pointer; font-size: 1.2rem;">✎</button>
+                            <button type="button" onclick="removeSubsection(${index})" style="color: #e74c3c; background: none; border: none; cursor: pointer; font-size: 1.2rem;">×</button>
+                        </div>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            listContainer.innerHTML = html;
+        }
+
+        window.removeSubsection = function(index) {
+            console.log("Removing subsection at index:", index);
+            try {
+                if (window.confirm('Remove this subsection?')) {
+                    const idx = parseInt(index, 10);
+                    subsections.splice(idx, 1);
+                    document.getElementById('subsections-data').value = JSON.stringify(subsections);
+                    
+                    // Refresh map layers
+                    subsectionLayers.clearLayers();
+                    subsections.forEach(sub => {
+                        L.polygon(sub.boundary_coordinates, {
+                            color: sub.color,
+                            weight: 2,
+                            fillColor: sub.color,
+                            fillOpacity: 0.2
+                        }).addTo(subsectionLayers).bindPopup(`<b>${sub.name}</b><br>${sub.description || 'No description'}`);
+                    });
+                    
+                    updateSubsectionsList();
+                    console.log("Subsection removed successfully");
+                }
+            } catch (e) {
+                console.error("Error removing subsection:", e);
+                showCustomAlert("Error removing subsection: " + e.message, "Error");
+            }
+        };
+
+        window.editSubsection = function(index) {
+             console.log("Editing subsection at index:", index);
+             try {
+                const sub = subsections[index];
+                
+                // Populate form
+                document.getElementById('subsection-name').value = sub.name;
+                document.getElementById('subsection-description').value = sub.description || '';
+                document.getElementById('subsection-color').value = sub.color;
+                
+                // Set current polygon
+                if (currentSubsectionPolygon) {
+                    editableSubsectionGroup.removeLayer(currentSubsectionPolygon);
+                }
+                
+                var latlngs = sub.boundary_coordinates;
+                currentSubsectionPolygon = L.polygon(latlngs, {
+                    color: sub.color,
+                    fillColor: sub.color,
+                    fillOpacity: 0.2,
+                    weight: 2
+                });
+                editableSubsectionGroup.addLayer(currentSubsectionPolygon);
+                
+                // switch to subsection mode
+                switchControlMode('subsection');
+                
+                // Remove from list/map (effectively "move" to edit form)
+                subsections.splice(index, 1);
+                document.getElementById('subsections-data').value = JSON.stringify(subsections);
+                
+                // Refresh map layers (active one is editable, others are fixed)
+                subsectionLayers.clearLayers();
+                subsections.forEach(s => {
+                    L.polygon(s.boundary_coordinates, {
+                        color: s.color,
+                        weight: 2,
+                        fillColor: s.color,
+                        fillOpacity: 0.2
+                    }).addTo(subsectionLayers).bindPopup(`<b>${s.name}</b><br>${s.description || 'No description'}`);
+                });
+                
+                updateSubsectionsList();
+                
+                // Show form
+                subsectionFormContainer.style.display = 'block';
+                document.getElementById('save-subsection-btn').style.display = 'block';
+                const toggleBtn = document.getElementById('add-subsection-toggle');
+                toggleBtn.textContent = '×';
+                toggleBtn.style.background = '#e74c3c';
+                
+                // Scroll to form
+                subsectionFormContainer.scrollIntoView({ behavior: 'smooth' });
+                showCustomAlert("Subsection loaded for editing. You can modify the details or redraw the boundary.", "Editing Subsection");
+
+             } catch (e) {
+                 console.error("Error editing subsection:", e);
+             }
+        };
+
+        // Init from existing values
+        if (latInput.value && lngInput.value) {
+            var lat = parseFloat(latInput.value);
+            var lng = parseFloat(lngInput.value);
+            if (!isNaN(lat) && !isNaN(lng)) {
+                placeMarker(lat, lng);
+                map.setView([lat, lng], 14);
+            }
+        }
+
+        // Init existing boundary
+        if (boundaryInput.value) {
+            try {
+                var boundaryCoords = JSON.parse(boundaryInput.value);
+                if (boundaryCoords && boundaryCoords.length > 0) {
+                     var polygon = L.polygon(boundaryCoords, {
+                        color: "#ff7800",
+                        weight: 1
+                    });
+                    setBoundary(polygon);
+                    map.fitBounds(polygon.getBounds());
+                }
+            } catch(e) {
+                console.error("Error parsing boundary:", e);
+            }
+        }
+
+        // Init existing subsections (Edit Mode)
+        try {
+            var existingData = '{{ existing_subsections_json|escapejs|default:"[]" }}';
+            var existingSubsections = JSON.parse(existingData);
+            if (Array.isArray(existingSubsections) && existingSubsections.length > 0) {
+                existingSubsections.forEach(function(sub) {
+                    subsections.push(sub);
+                    
+                    // Add to map
+                    L.polygon(sub.boundary_coordinates, {
+                        color: sub.color,
+                        weight: 2,
+                        fillColor: sub.color,
+                        fillOpacity: 0.2
+                    }).addTo(subsectionLayers).bindPopup(`<b>${sub.name}</b><br>${sub.description || 'No description'}`);
+                });
+                // Update hidden field
+                document.getElementById('subsections-data').value = JSON.stringify(subsections);
+                // Update UI list
+                updateSubsectionsList();
+            }
+        } catch(e) {
+            console.error("Error loading subsections:", e);
+        }
+    });
+</script>
+{% endblock %}

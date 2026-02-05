@@ -1,0 +1,700 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<style>
+    /* Force full viewport height for this page only */
+    body {
+        height: 100vh;
+        overflow: hidden;
+    }
+    .event-list-item {
+        padding: 15px;
+        border-bottom: 1px solid #eee;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        border-radius: 8px;
+        margin-bottom: 8px;
+        background: white;
+    }
+    .event-list-item:hover {
+        background-color: #f8f9fa;
+        transform: translateY(-2px);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .map-sidebar {
+        overflow-y: auto; /* Enable scrolling for list */
+    }
+</style>
+<div class="map-page-layout">
+    <div class="map-sidebar">
+        <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px; margin-bottom: 20px;">
+            <h2 style="margin: 0; border: none; padding: 0;">Events</h2>
+            {% if user.is_authenticated and user.userprofile.role == 'ORGANIZER' or user.userprofile.role == 'ADMIN' %}
+            <a href="{% url 'add_event' %}" class="btn-primary" style="padding: 5px 15px; font-size: 0.9rem; border-radius: 20px; text-decoration: none;">+ Add</a>
+            {% endif %}
+        </div>
+        
+        <!-- Search Mode Tabs -->
+        <div style="display: flex; gap: 8px; margin-bottom: 15px; border-bottom: 2px solid #f0f0f0; padding-bottom: 10px;">
+            <button id="text-search-tab" class="search-tab active-tab" style="flex: 1; padding: 8px; background: #0f172a; color: white; border: none; border-radius: 9999px; font-weight: 600; cursor: pointer; font-size: 0.85rem; transition: background-color 0.2s;">
+                Text Search
+            </button>
+            <button id="nearby-search-tab" class="search-tab" style="flex: 1; padding: 8px; background: white; color: #0f172a; border: 2px solid #cbd5e1; border-radius: 9999px; font-weight: 600; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;">
+                Nearby
+            </button>
+        </div>
+        
+        <!-- Text Search Panel -->
+        <div id="text-search-panel" style="margin-bottom: 20px;">
+            <input 
+                type="text" 
+                id="event-search-input" 
+                placeholder="Search events by name, location, or category..."
+                style="width: 100%; padding: 12px 14px; border: 2px solid #cbd5e1; border-radius: 12px; font-size: 0.95rem; font-family: 'Inter', sans-serif; transition: border-color 0.2s; box-sizing: border-box;"
+            />
+            <div id="search-results-count" style="font-size: 0.85rem; color: #64748b; margin-top: 8px; display: none;">
+                <!-- Results count will be shown here -->
+            </div>
+        </div>
+        
+        <!-- Nearby Search Panel -->
+        <div id="nearby-search-panel" style="margin-bottom: 20px; display: none;">
+            <!-- Place/Landmark Search -->
+            <div style="margin-bottom: 15px;">
+                <input 
+                    type="text" 
+                    id="place-search-input" 
+                    placeholder="Search near a place or landmark..."
+                    style="width: 100%; padding: 12px 14px; border: 2px solid #cbd5e1; border-radius: 12px; font-size: 0.95rem; font-family: 'Inter', sans-serif; box-sizing: border-box; margin-bottom: 8px;"
+                />
+                <button id="search-place-btn" style="width: 100%; padding: 12px; background: #0f172a; color: white; border: none; border-radius: 9999px; font-weight: 600; cursor: pointer; font-size: 0.95rem; margin-bottom: 15px; transition: background-color 0.2s;">
+                    🔍 Search This Place
+                </button>
+            </div>
+            
+            <div style="text-align: center; margin-bottom: 15px; color: #64748b; font-size: 0.85rem; font-weight: 600;">
+                — OR —
+            </div>
+            
+            <button id="near-me-btn" style="width: 100%; padding: 12px; background: #0f172a; color: white; border: none; border-radius: 9999px; font-weight: 600; cursor: pointer; font-size: 0.95rem; margin-bottom: 12px; transition: background-color 0.2s;">
+                📍 Find Events Near Me
+            </button>
+            <div style="margin-bottom: 12px;">
+                <label style="font-size: 0.85rem; color: #64748b; display: block; margin-bottom: 6px;">
+                    Radius: <span id="radius-value">10</span> km
+                </label>
+                <input type="range" id="radius-slider" min="1" max="50" value="10" style="width: 100%;" />
+            </div>
+            <div id="nearby-results-count" style="font-size: 0.85rem; color: #64748b; display: none;">
+                <!-- Nearby results count -->
+            </div>
+        </div>
+        
+        <div id="event-list-container">
+            <p style="color: #666; font-style: italic; text-align: center; margin-top: 20px;">Loading events...</p>
+        </div>
+    </div>
+    <div class="map-container-wrapper">
+        <div id="map"></div>
+        <button id="locate-btn" class="map-control-btn" title="Show My Location" style="position: absolute; bottom: 30px; right: 30px; z-index: 999; background: white; border: none; border-radius: 50%; width: 50px; height: 50px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.3s;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#302b63" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+            </svg>
+        </button>
+        <button id="clear-route-btn" class="map-control-btn" title="Clear Route" style="display: none; position: absolute; bottom: 100px; right: 30px; z-index: 999; background: white; border: none; border-radius: 50%; width: 50px; height: 50px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); cursor: pointer; align-items: center; justify-content: center; transition: all 0.3s; color: #e74c3c;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Initialize map centered at a default location (e.g., India or World)
+    var map = L.map('map').setView([20.5937, 78.9629], 5);
+
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }).addTo(map);
+
+    // Store markers and boundaries for clearing
+    let currentMarkers = L.featureGroup().addTo(map);
+    let currentBoundaries = []; // Main event boundaries
+    let eventSubsectionLayers = {}; // Store subsection layers by event ID
+
+    // Function to fetch and display events
+    function fetchAndDisplayEvents(searchQuery = '') {
+        // Build URL with search parameter
+        const url = searchQuery 
+            ? `/api/events/?search=${encodeURIComponent(searchQuery)}`
+            : '/api/events/';
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                const listContainer = document.getElementById('event-list-container');
+                
+                // Clear existing markers and boundaries
+                currentMarkers.clearLayers();
+                currentBoundaries.forEach(b => map.removeLayer(b));
+                currentBoundaries = [];
+
+                // Clear existing subsections
+                for (const id in eventSubsectionLayers) {
+                     if (Array.isArray(eventSubsectionLayers[id])) {
+                        eventSubsectionLayers[id].forEach(layer => map.removeLayer(layer));
+                     }
+                }
+                eventSubsectionLayers = {};
+                
+                if (data.length > 0) {
+                    listContainer.innerHTML = ''; // Clear placeholder
+                } else {
+                    listContainer.innerHTML = '<p style="text-align: center; color: #666;">No events found.</p>';
+                    return;
+                }
+
+                data.forEach(event => {
+                    // 1. Add Marker to Map
+                    var marker = L.marker([event.latitude, event.longitude]).addTo(map);
+                    currentMarkers.addLayer(marker);
+
+                    let popupContent = `
+                        <b>${event.title}</b><br>
+                        ${event.location_name}<br>
+                        <small>${event.date}</small><br>
+                        <p>${event.description}</p>
+                        <div style="display: flex; gap: 8px; margin-top: 10px;">
+                            <button onclick="showRoute(${event.latitude}, ${event.longitude})" style="background: #302b63; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 0.8rem; flex: 1;">Show Route</button>
+                    `;
+                    
+                    if (event.subsections && event.subsections.length > 0) {
+                        popupContent += `<button id="btn-areas-${event.id}" onclick="toggleEventAreas(${event.id})" style="background: #eab308; color: black; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; font-size: 0.8rem; flex: 1;">Hide Areas</button>`;
+                    }
+                    
+                    popupContent += `</div>`;
+
+                    marker.bindPopup(popupContent);
+
+                    // Add Event Boundary
+                    if (event.boundary_coordinates) {
+                        var boundary = L.polygon(event.boundary_coordinates, {
+                            color: "#ff7800",
+                            weight: 2,
+                            fillColor: "#ff7800",
+                            fillOpacity: 0.1
+                        }).addTo(map);
+                        currentBoundaries.push(boundary);
+                    }
+                    
+                    // Prepare subsections if they exist
+                    if (event.subsections && event.subsections.length > 0) {
+                        eventSubsectionLayers[event.id] = [];
+                        
+                        event.subsections.forEach(subsection => {
+                            const subsectionPolygon = L.polygon(subsection.boundary_coordinates, {
+                                color: subsection.color,
+                                weight: 2,
+                                fillColor: subsection.color,
+                                fillOpacity: 0.3
+                            });
+                            
+                            // Add to map by default
+                            subsectionPolygon.addTo(map);
+                            
+                            const subsectionPopup = `
+                                <div style="min-width: 200px;">
+                                    <h4 style="margin: 0 0 8px 0; color: #302b63;">${subsection.name}</h4>
+                                    <p style="margin: 0 0 8px 0; font-size: 0.9rem;"><strong>Part of:</strong> ${event.title}</p>
+                                    ${subsection.description ? `<p style="margin: 0; font-size: 0.85rem; color: #666;">${subsection.description}</p>` : ''}
+                                    <div style="margin-top: 8px;">
+                                        <a href="/stage/${subsection.id}/events/" target="_blank" style="display: inline-block; background: #0f172a; color: white; text-decoration: none; padding: 4px 10px; border-radius: 4px; font-size: 0.8rem;">View Schedule</a>
+                                    </div>
+                                </div>
+                            `;
+                            subsectionPolygon.bindPopup(subsectionPopup);
+                            
+                            eventSubsectionLayers[event.id].push(subsectionPolygon);
+                        });
+                    }
+
+                    // 2. Add Item to Sidebar List
+                    const listItem = document.createElement('div');
+                    listItem.className = 'event-list-item';
+                    listItem.innerHTML = `
+                        <h3 style="margin: 0 0 5px 0; font-size: 1rem; color: #302b63;">${event.title}</h3>
+                        <p style="margin: 0; font-size: 0.85rem; color: #666;">📍 ${event.location_name}</p>
+                        <p style="margin: 5px 0 0 0; font-size: 0.8rem; color: #999;">📅 ${event.date}</p>
+                    `;
+                
+                    listItem.addEventListener('click', () => {
+                        map.flyTo([event.latitude, event.longitude], 16, {
+                            duration: 1.5
+                        });
+                        marker.openPopup();
+                        
+                        // Highlight selected item visually (optional)
+                        document.querySelectorAll('.event-list-item').forEach(el => el.style.borderLeft = 'none');
+                        listItem.style.borderLeft = '4px solid #302b63';
+                    });
+
+                    listContainer.appendChild(listItem);
+                });
+
+                // Adjust map view to fit all markers if any exist
+                if (data.length > 0) {
+                    map.fitBounds(currentMarkers.getBounds(), {padding: [50, 50]});
+                }
+                
+                // Update results count
+                const resultsCount = document.getElementById('search-results-count');
+                if (searchQuery) {
+                    resultsCount.style.display = 'block';
+                    resultsCount.textContent = `Found ${data.length} event${data.length !== 1 ? 's' : ''}`;
+                } else {
+                    resultsCount.style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching events:', error);
+                document.getElementById('event-list-container').innerHTML = '<p style="color: red; text-align: center;">Error loading events.</p>';
+            });
+    }
+
+    // Initial load
+    fetchAndDisplayEvents();
+
+    // Search functionality with debouncing (for live results as you type)
+    let searchTimeout;
+    const searchInput = document.getElementById('event-search-input');
+    
+    searchInput.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            fetchAndDisplayEvents(e.target.value);
+        }, 300); // 300ms debounce
+    });
+    
+    // Allow Enter key to trigger search immediately
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            clearTimeout(searchTimeout);
+            fetchAndDisplayEvents(searchInput.value);
+        }
+    });
+
+    // Tab Switching Logic
+    const textSearchTab = document.getElementById('text-search-tab');
+    const nearbySearchTab = document.getElementById('nearby-search-tab');
+    const textSearchPanel = document.getElementById('text-search-panel');
+    const nearbySearchPanel = document.getElementById('nearby-search-panel');
+
+    textSearchTab.addEventListener('click', () => {
+        // Switch to text search
+        textSearchTab.style.background = '#0f172a';
+        textSearchTab.style.color = 'white';
+        textSearchTab.style.border = 'none';
+        textSearchTab.style.borderRadius = '9999px';
+        nearbySearchTab.style.background = 'white';
+        nearbySearchTab.style.color = '#0f172a';
+        nearbySearchTab.style.border = '2px solid #cbd5e1';
+        nearbySearchTab.style.borderRadius = '9999px';
+        
+        textSearchPanel.style.display = 'block';
+        nearbySearchPanel.style.display = 'none';
+        
+        // Reset to all events
+        fetchAndDisplayEvents();
+    });
+
+    nearbySearchTab.addEventListener('click', () => {
+        // Switch to nearby search
+        nearbySearchTab.style.background = '#0f172a';
+        nearbySearchTab.style.color = 'white';
+        nearbySearchTab.style.border = 'none';
+        nearbySearchTab.style.borderRadius = '9999px';
+        textSearchTab.style.background = 'white';
+        textSearchTab.style.color = '#0f172a';
+        textSearchTab.style.border = '2px solid #cbd5e1';
+        textSearchTab.style.borderRadius = '9999px';
+        
+        textSearchPanel.style.display = 'none';
+        nearbySearchPanel.style.display = 'block';
+    });
+
+    // Nearby Search Functionality
+    let currentUserLocation = null;
+    const nearMeBtn = document.getElementById('near-me-btn');
+    const radiusSlider = document.getElementById('radius-slider');
+    const radiusValue = document.getElementById('radius-value');
+
+    // Update radius display
+    radiusSlider.addEventListener('input', (e) => {
+        radiusValue.textContent = e.target.value;
+        // If we have a location, re-search with new radius
+        if (currentUserLocation) {
+            fetchNearbyEvents(currentUserLocation.lat, currentUserLocation.lon, e.target.value);
+        }
+    });
+
+    // Near Me button click
+    nearMeBtn.addEventListener('click', () => {
+        if (navigator.geolocation) {
+            nearMeBtn.textContent = '🔄 Getting your location...';
+            nearMeBtn.disabled = true;
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    currentUserLocation = {
+                        lat: position.coords.latitude,
+                        lon: position.coords.longitude
+                    };
+                    
+                    const radius = radiusSlider.value;
+                    fetchNearbyEvents(currentUserLocation.lat, currentUserLocation.lon, radius);
+                    
+                    nearMeBtn.textContent = '📍 Find Events Near Me';
+                    nearMeBtn.disabled = false;
+                    
+                    // Center map on user location
+                    map.setView([currentUserLocation.lat, currentUserLocation.lon], 12);
+                },
+                (error) => {
+                    showCustomAlert('Unable to get your location. Please enable location services.', 'Location Error');
+                    nearMeBtn.textContent = '📍 Find Events Near Me';
+                    nearMeBtn.disabled = false;
+                }
+            );
+        } else {
+            showCustomAlert('Geolocation is not supported by your browser.', 'Not Supported');
+        }
+    });
+
+    // Place/Landmark Search Functionality
+    const placeSearchInput = document.getElementById('place-search-input');
+    const searchPlaceBtn = document.getElementById('search-place-btn');
+
+    // Allow Enter key to trigger place search
+    placeSearchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            searchPlaceBtn.click();
+        }
+    });
+
+    searchPlaceBtn.addEventListener('click', () => {
+        const placeName = placeSearchInput.value.trim();
+        
+        if (!placeName) {
+            showCustomAlert('Please enter a place or landmark name.', 'Input Required');
+            return;
+        }
+
+        searchPlaceBtn.textContent = '🔄 Searching...';
+        searchPlaceBtn.disabled = true;
+
+        // Use Nominatim API to geocode the place
+        const geocodeUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(placeName)}&limit=1`;
+
+        fetch(geocodeUrl)
+            .then(response => response.json())
+            .then(data => {
+                if (data.length === 0) {
+                    showCustomAlert(`Could not find location: "${placeName}". Please try a different search term.`, 'Not Found');
+                    searchPlaceBtn.textContent = '🔍 Search This Place';
+                    searchPlaceBtn.disabled = false;
+                    return;
+                }
+
+                const location = data[0];
+                const lat = parseFloat(location.lat);
+                const lon = parseFloat(location.lon);
+
+                // Store for radius changes
+                currentUserLocation = { lat, lon };
+
+                // Get radius and search
+                const radius = radiusSlider.value;
+                fetchNearbyEvents(lat, lon, radius);
+
+                // Update results count to show place name
+                const resultsCount = document.getElementById('nearby-results-count');
+                resultsCount.style.display = 'block';
+                resultsCount.textContent = `Searching near: ${location.display_name}`;
+
+                // Center map on the location
+                map.setView([lat, lon], 12);
+
+                // Add a marker for the searched place
+                L.marker([lat, lon], {
+                    icon: L.icon({
+                        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+                        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+                        iconSize: [25, 41],
+                        iconAnchor: [12, 41],
+                        popupAnchor: [1, -34],
+                        shadowSize: [41, 41]
+                    })
+                }).addTo(map).bindPopup(`<b>${placeName}</b><br>${location.display_name}`).openPopup();
+
+                searchPlaceBtn.textContent = '🔍 Search This Place';
+                searchPlaceBtn.disabled = false;
+            })
+            .catch(error => {
+                console.error('Geocoding error:', error);
+                showCustomAlert('Error searching for location. Please try again.', 'Search Error');
+                searchPlaceBtn.textContent = '🔍 Search This Place';
+                searchPlaceBtn.disabled = false;
+            });
+    });
+
+    // Function to fetch nearby events
+    function fetchNearbyEvents(lat, lon, radius) {
+        const url = `/api/events/nearby/?lat=${lat}&lon=${lon}&radius=${radius}`;
+        
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                const listContainer = document.getElementById('event-list-container');
+                const resultsCount = document.getElementById('nearby-results-count');
+                
+                // Clear existing markers and boundaries
+                currentMarkers.clearLayers();
+                currentBoundaries.forEach(b => map.removeLayer(b));
+                currentBoundaries = [];
+                
+                if (data.length > 0) {
+                    listContainer.innerHTML = '';
+                    resultsCount.style.display = 'block';
+                    resultsCount.textContent = `Found ${data.length} event${data.length !== 1 ? 's' : ''} within ${radius}km`;
+                } else {
+                    listContainer.innerHTML = '<p style="text-align: center; color: #666;">No events found nearby.</p>';
+                    resultsCount.style.display = 'block';
+                    resultsCount.textContent = `No events within ${radius}km`;
+                    return;
+                }
+
+                data.forEach(event => {
+                    // Add marker
+                    var marker = L.marker([event.latitude, event.longitude]).addTo(map);
+                    currentMarkers.addLayer(marker);
+
+                    marker.bindPopup(`
+                        <b>${event.title}</b><br>
+                        ${event.location_name}<br>
+                        <small>${event.date}</small><br>
+                        <strong>${event.distance} km away</strong><br>
+                        <p>${event.description}</p>
+                        <button onclick="showRoute(${event.latitude}, ${event.longitude})" style="background: #302b63; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; margin-top: 5px; font-size: 0.8rem;">Show Route</button>
+                    `);
+
+                    // Add boundary
+                    if (event.boundary_coordinates) {
+                        var boundary = L.polygon(event.boundary_coordinates, {
+                            color: "#ff7800",
+                            weight: 2,
+                            fillColor: "#ff7800",
+                            fillOpacity: 0.1
+                        }).addTo(map);
+                        currentBoundaries.push(boundary);
+                    }
+                    
+                    // Prepare subsections if they exist (don't add to map yet)
+                    if (event.subsections && event.subsections.length > 0) {
+                        eventSubsectionLayers[event.id] = [];
+                        
+                        event.subsections.forEach(subsection => {
+                            const subsectionPolygon = L.polygon(subsection.boundary_coordinates, {
+                                color: subsection.color,
+                                weight: 2,
+                                fillColor: subsection.color,
+                                fillOpacity: 0.3
+                            });
+                            // Don't addTo(map) here.
+                            
+                            const subsectionPopup = `
+                                <div style="min-width: 200px;">
+                                    <h4 style="margin: 0 0 8px 0; color: #302b63;">${subsection.name}</h4>
+                                    <p style="margin: 0 0 8px 0; font-size: 0.9rem;"><strong>Part of:</strong> ${event.title}</p>
+                                    ${subsection.description ? `<p style="margin: 0; font-size: 0.85rem; color: #666;">${subsection.description}</p>` : ''}
+                                </div>
+                            `;
+                            subsectionPolygon.bindPopup(subsectionPopup);
+                            
+                            eventSubsectionLayers[event.id].push(subsectionPolygon);
+                        });
+                    }
+
+                    // Add to sidebar
+                    const listItem = document.createElement('div');
+                    listItem.className = 'event-list-item';
+                    listItem.innerHTML = `
+                        <h3 style="margin: 0 0 5px 0; font-size: 1rem; color: #302b63;">${event.title}</h3>
+                        <p style="margin: 0; font-size: 0.85rem; color: #666;">📍 ${event.location_name}</p>
+                        <p style="margin: 5px 0 0 0; font-size: 0.8rem; color: #999;">📅 ${event.date}</p>
+                        <p style="margin: 5px 0 0 0; font-size: 0.8rem; color: #0f172a; font-weight: 600;">📏 ${event.distance} km away</p>
+                    `;
+                    
+                    listItem.addEventListener('click', () => {
+                        map.flyTo([event.latitude, event.longitude], 16, {
+                            duration: 1.5
+                        });
+                        marker.openPopup();
+                        
+                        document.querySelectorAll('.event-list-item').forEach(el => el.style.borderLeft = 'none');
+                        listItem.style.borderLeft = '4px solid #302b63';
+                    });
+
+                    listContainer.appendChild(listItem);
+                });
+
+                // Fit map to show all results
+                if (data.length > 0) {
+                    map.fitBounds(currentMarkers.getBounds(), {padding: [50, 50]});
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching nearby events:', error);
+                document.getElementById('event-list-container').innerHTML = '<p style="color: red; text-align: center;">Error loading nearby events.</p>';
+            });
+    }
+
+    // Geolocation Logic
+    var locateBtn = document.getElementById('locate-btn');
+    var clearRouteBtn = document.getElementById('clear-route-btn');
+    var userMarker = null;
+    var currentRouteControl = null;
+    var userLatLng = null;
+
+    locateBtn.addEventListener('click', function() {
+        locateBtn.innerHTML = '<span class="loader" style="border: 3px solid #f3f3f3; border-top: 3px solid #302b63; border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite;"></span>'; // Simple loader
+        
+        map.locate({setView: true, maxZoom: 14});
+    });
+    
+    // Clear Route Logic
+    clearRouteBtn.addEventListener('click', function() {
+        if (currentRouteControl) {
+            map.removeControl(currentRouteControl);
+            currentRouteControl = null;
+        }
+        clearRouteBtn.style.display = 'none';
+        
+        // Reset view to fit markers? Or just leave as is.
+    });
+
+    map.on('locationfound', function(e) {
+        locateBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#302b63" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+            </svg>`;
+        
+        var radius = e.accuracy;
+        userLatLng = e.latlng; // Store for routing
+
+        if (userMarker) {
+            map.removeLayer(userMarker);
+        }
+
+        userMarker = L.circleMarker(e.latlng, {
+            radius: 8,
+            fillColor: "#e74c3c",
+            color: "#302b63",
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.8
+        }).addTo(map)
+            .bindPopup("You are here").openPopup();
+    });
+
+    map.on('locationerror', function(e) {
+        locateBtn.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#e74c3c" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>`;
+        showCustomAlert("Location access denied or unavailable.", "Access Denied");
+    });
+
+    // Global function to be called from popup
+    window.showRoute = function(destLat, destLng) {
+        if (!userLatLng) {
+            showCustomAlert("Please click 'Locate Me' (the button on bottom-right) first to identify your starting position.", "Location Required");
+            return;
+        }
+
+        if (currentRouteControl) {
+            map.removeControl(currentRouteControl);
+        }
+
+        currentRouteControl = L.Routing.control({
+            waypoints: [
+                L.latLng(userLatLng.lat, userLatLng.lng),
+                L.latLng(destLat, destLng)
+            ],
+            routeWhileDragging: false,
+            showAlternatives: false,
+            fitSelectedRoutes: true,
+            lineOptions: {
+                styles: [{color: '#6330ff', opacity: 0.7, weight: 5}]
+            },
+            router: L.Routing.osrmv1({
+                serviceUrl: 'https://router.project-osrm.org/route/v1'
+            }),
+            createMarker: function() { return null; } // Don't create extra markers for waypoints
+        }).addTo(map);
+        
+        // Show Clear Button
+        clearRouteBtn.style.display = 'flex';
+        
+        // Close Popup
+        map.closePopup();
+    };
+
+    // Toggle Areas Function
+    window.toggleEventAreas = function(eventId) {
+        console.log("Toggling areas for event:", eventId);
+        const layers = eventSubsectionLayers[eventId];
+        const btn = document.getElementById(`btn-areas-${eventId}`);
+        
+        if (!layers || layers.length === 0) {
+            console.log("No layers found for this event");
+            return;
+        }
+        
+        // Check if first layer is on map to determine state
+        const isVisible = map.hasLayer(layers[0]);
+        console.log("Are layers visible?", isVisible);
+        
+        if (isVisible) {
+            // Hide
+            console.log("Hiding layers");
+            layers.forEach(layer => map.removeLayer(layer));
+            if (btn) btn.textContent = "Show Areas";
+        } else {
+            // Show
+            console.log("Showing layers");
+            layers.forEach(layer => {
+                map.addLayer(layer);
+                layer.bringToFront(); // Ensure it's on top of background
+            });
+            if (btn) btn.textContent = "Hide Areas";
+        }
+    };
+</script>
+<style>
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.map-control-btn:hover {
+    transform: scale(1.1);
+    background: #f8f9fa !important;
+}
+</style>
+{% endblock %}

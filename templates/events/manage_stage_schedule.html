@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container" style="max-width: 800px; margin: 40px auto; padding: 20px;">
+    <div style="margin-bottom: 30px; border-bottom: 1px solid #eee; padding-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end;">
+        <div>
+            <a href="{% url 'manage_event_stages' subsection.event.id %}" style="text-decoration: none; color: #64748b; font-size: 0.9rem;">&larr; Back to Stages</a>
+            <h2 style="margin-top: 15px; margin-bottom: 5px; color: #0f172a;">Schedule: {{ subsection.name }}</h2>
+            <p style="margin: 0; color: #64748b;">Managing schedule for {{ subsection.event.title }}</p>
+        </div>
+        <a href="{% url 'add_stage_event' subsection.id %}" class="btn btn-primary" style="text-decoration: none; padding: 10px 20px; border-radius: 8px; font-size: 0.95rem; background-color: #0f172a; color: white;">+ Add Event</a>
+    </div>
+
+    {% if events %}
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            {% for event in events %}
+            <div style="background: white; padding: 15px 20px; border-radius: 10px; border-left: 4px solid {{ subsection.color }}; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                    <h3 style="margin: 0; color: #334155; font-size: 1.1rem;">{{ event.title }}</h3>
+                    <div style="text-align: right; font-size: 0.85rem; color: #64748b; font-weight: 500;">
+                        {{ event.start_time|date:"M d, H:i" }} - {{ event.end_time|date:"H:i" }}
+                    </div>
+                </div>
+                <p style="margin: 0; color: #64748b; font-size: 0.95rem;">{{ event.description|default:"No description" }}</p>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div style="text-align: center; padding: 50px; background: #f8fafc; border-radius: 12px; color: #94a3b8; border: 2px dashed #cbd5e1;">
+            <p style="font-size: 1.1rem; margin-bottom: 15px;">No events scheduled for this stage yet.</p>
+            <a href="{% url 'add_stage_event' subsection.id %}" style="color: #3b82f6; text-decoration: none; font-weight: 600;">Add the first event</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

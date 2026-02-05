@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div style="max-width: 1200px; margin: 20px auto; padding: 20px;">
+    <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 30px; gap: 20px;">
+        <h2>Organizer Dashboard</h2>
+        <a href="{% url 'add_event' %}" class="btn btn-primary">Add New Event</a>
+    </div>
+
+    <div style="background: #fff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); padding: 20px;">
+        <h3>My Events</h3>
+        {% if events %}
+            <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
+                <thead>
+                    <tr style="background: #f8fafc; text-align: left;">
+                        <th style="padding: 12px; border-bottom: 2px solid #e2e8f0;">Event Name</th>
+                        <th style="padding: 12px; border-bottom: 2px solid #e2e8f0;">Date</th>
+                        <th style="padding: 12px; border-bottom: 2px solid #e2e8f0;">Location</th>
+                        <th style="padding: 12px; border-bottom: 2px solid #e2e8f0;">Category</th>
+                        <th style="padding: 12px; border-bottom: 2px solid #e2e8f0;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for event in events %}
+                    <tr style="border-bottom: 1px solid #e2e8f0;">
+                        <td style="padding: 12px; font-weight: 600;">{{ event.title }}</td>
+                        <td style="padding: 12px;">{{ event.date|date:"M d, Y H:i" }}</td>
+                        <td style="padding: 12px;">{{ event.location_name }}</td>
+                        <td style="padding: 12px;">{{ event.category.name|default:"Uncategorized" }}</td>
+                        <td style="padding: 12px;">
+                            <a href="{% url 'edit_event' event.id %}" style="color: #3b82f6; text-decoration: none; margin-right: 10px;">Edit</a>
+                            <a href="{% url 'manage_event_stages' event.id %}" style="color: #8b5cf6; text-decoration: none; margin-right: 10px;">Manage Stages</a>
+                            <a href="#" style="color: #ef4444; text-decoration: none;">Delete</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <p style="padding: 20px; text-align: center; color: #64748b;">You haven't created any events yet.</p>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

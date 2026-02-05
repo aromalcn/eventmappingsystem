@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card" style="border-top: 5px solid #ef4444;">
+        <h2 style="color: #ef4444;">Delete User?</h2>
+        <p>Are you sure you want to delete the user <strong>{{ user_to_delete.username }}</strong>?</p>
+        <p style="color: #64748b; font-size: 0.9em;">This action cannot be undone. All data associated with this user will be permanently removed.</p>
+        
+        <form method="post">
+            {% csrf_token %}
+            <div style="display: flex; gap: 10px; margin-top: 20px;">
+                <button type="submit" class="btn" style="flex: 1; background-color: #ef4444; color: white; border: none; padding: 10px; border-radius: 4px; cursor: pointer;">Yes, Delete</button>
+                <a href="{% url 'admin_dashboard' %}" class="btn" style="flex: 1; text-align: center; border: 1px solid #ccc; padding: 10px; text-decoration: none; border-radius: 4px; color: #333;">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

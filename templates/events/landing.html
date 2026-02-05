@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="landing-container">
+    <div class="hero-section">
+        <h1 class="hero-title">Discover Events <br>Around the World</h1>
+        <p class="hero-subtitle">Interactive mapping for all your favorite events. Join the community and start exploring today.</p>
+        <div class="cta-buttons">
+            <a href="{% url 'map_home' %}" class="btn btn-primary">Explore Map</a>
+            {% if not user.is_authenticated %}
+                <a href="{% url 'register' %}" class="btn btn-secondary">Join Now</a>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="features-section">
+        <div class="feature-card">
+            <h3>Interactive Map</h3>
+            <p> Visualize events geographically with our dynamic, real-time map interface.</p>
+        </div>
+        <div class="feature-card">
+            <h3>Real-time Updates</h3>
+            <p>Stay informed with the latest event details, location changes, and live statuses.</p>
+        </div>
+        <div class="feature-card">
+            <h3>User Community</h3>
+            <p>Join a growing community of event enthusiasts, share experiences, and connect.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
