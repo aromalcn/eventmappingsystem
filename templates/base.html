@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    {% load static %}
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Event Mapping System</title>
+    <!-- Leaflet CSS -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: sans-serif;
+      }
+
+      header {
+        background: #333;
+        color: #fff;
+        padding: 10px 20px;
+        text-align: center;
+      }
+    </style>
+  </head>
+  <body>
+    <header class="main-header" style="display: flex; justify-content: space-between; align-items: center;">
+      <h1 class="logo"><a href="{% url 'landing_page' %}">Event Mapping System</a></h1>
+      
+      {% if user.is_authenticated %}
+      <div style="flex: 1; text-align: center;">
+        <span style="color: #0f172a; font-weight: 600; font-size: 1rem;">👋 Welcome, {{ user.username }}!</span>
+      </div>
+      {% else %}
+      <div style="flex: 1;"></div>
+      {% endif %}
+      
+      <nav class="main-nav">
+        <a href="{% url 'map_home' %}">Map</a>
+          {% if user.is_authenticated %}
+              {% if user.userprofile %}
+                  {% if user.userprofile.role == 'ADMIN' %}
+                      <a href="{% url 'admin_dashboard' %}">Dashboard</a>
+                  {% elif user.userprofile.role == 'ORGANIZER' %}
+                      <a href="{% url 'organizer_dashboard' %}">Dashboard</a>
+                  {% else %}
+                      <a href="{% url 'user_dashboard' %}">Profile</a>
+                  {% endif %}
+              {% else %}
+                  <a href="{% url 'user_dashboard' %}">Profile</a>
+              {% endif %}
+              <form action="{% url 'logout' %}" method="post" style="display: inline;">
+                  {% csrf_token %}
+                  <button type="submit" class="logout-btn">Logout</button>
+              </form>
+          {% else %}
+              <a href="{% url 'login' %}">Login</a>
+              <a href="{% url 'register' %}" class="register-btn">Register</a>
+          {% endif %}
+      </nav>
+    </header>
+
+    {% block content %} {% endblock %}
+
+    <!-- Leaflet JS -->
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <!-- Leaflet Routing Machine -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+
+    <!-- Custom Alert Modal -->
+    <div id="custom-alert" class="custom-modal-overlay">
+        <div class="custom-modal-box">
+            <div class="custom-modal-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>
+            <h3 class="custom-modal-title">Notice</h3>
+            <p class="custom-modal-message" id="custom-alert-message"></p>
+            <button class="custom-modal-btn" onclick="closeCustomAlert()">Got it</button>
+        </div>
+    </div>
+
+    {% block scripts %} {% endblock %}
+
+    <script>
+        // Global Custom Alert Function
+        function showCustomAlert(message, title = 'Notice') {
+            const overlay = document.getElementById('custom-alert');
+            const msgEl = document.getElementById('custom-alert-message');
+            const titleEl = overlay.querySelector('.custom-modal-title');
+            
+            msgEl.textContent = message;
+            titleEl.textContent = title;
+            
+            overlay.style.display = 'flex';
+            // Small delay to allow display flex to apply before adding active class for transition
+            setTimeout(() => {
+                overlay.classList.add('active');
+            }, 10);
+        }
+
+        function closeCustomAlert() {
+            const overlay = document.getElementById('custom-alert');
+            overlay.classList.remove('active');
+            
+            // Wait for transition to finish
+            setTimeout(() => {
+                overlay.style.display = 'none';
+            }, 300);
+        }
+    </script>
+
+  </body>
+</html>

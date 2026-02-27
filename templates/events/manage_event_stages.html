@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container" style="max-width: 800px; margin: 40px auto; padding: 20px;">
+    <div style="margin-bottom: 30px; border-bottom: 1px solid #eee; padding-bottom: 20px;">
+        <a href="{% url 'organizer_dashboard' %}" style="text-decoration: none; color: #64748b; font-size: 0.9rem;">&larr; Back to Dashboard</a>
+        <h2 style="margin-top: 15px; color: #0f172a;">Manage Stages for {{ event.title }}</h2>
+        <p style="color: #64748b;">Select a stage to manage its schedule.</p>
+    </div>
+
+    {% if subsections %}
+        <div style="display: grid; gap: 15px;">
+            {% for subsection in subsections %}
+            <div style="background: white; padding: 20px; border-radius: 12px; border: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; gap: 50px; transition: transform 0.2s, box-shadow 0.2s;">
+                <div>
+                    <h3 style="margin: 0 0 5px 0; color: #0f172a; display: flex; align-items: center;">
+                        <span style="display: inline-block; width: 12px; height: 12px; background-color: {{ subsection.color }}; border-radius: 50%; margin-right: 10px;"></span>
+                        {{ subsection.name }}
+                    </h3>
+                    <p style="margin: 0; color: #64748b; font-size: 0.9rem;">{{ subsection.description|truncatechars:100 }}</p>
+                </div>
+                <div>
+                    <a href="{% url 'manage_stage_schedule' subsection.id %}" class="btn btn-primary" style="text-decoration: none; padding: 8px 16px; border-radius: 6px; font-size: 0.9rem; background-color: #3b82f6; color: white;">Manage Schedule &rarr;</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div style="text-align: center; padding: 40px; background: #f8fafc; border-radius: 12px; color: #64748b;">
+            <p>No stages found for this event.</p>
+            <p>You can add stages by editing the event map.</p>
+            <a href="{% url 'edit_event' event.id %}" style="display: inline-block; margin-top: 10px; color: #3b82f6; text-decoration: none;">Edit Event Map</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
