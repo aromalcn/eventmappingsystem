@@ -1,121 +1,393 @@
 {% extends 'base.html' %}
 {% block content %}
 <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
     {% if is_iframe %}
     .main-header { display: none !important; }
-    body { background: white !important; }
-    /* Adjust container padding since header is gone */
-    .container { min-height: 100vh; padding-top: 0 !important; }
+    body { 
+        background: #f8fafc !important; 
+        font-family: 'Inter', sans-serif; 
+        margin: 0; 
+        padding: 0;
+    }
+    .main-content { padding: 0 !important; }
+    .container { 
+        min-height: 100vh; 
+        padding: 0 !important; 
+        max-width: 100% !important; 
+        background: transparent !important;
+    }
     {% endif %}
+
+    .stage-wrapper {
+        max-width: 800px;
+        margin: 0 auto;
+        background: #f8fafc;
+        min-height: 100vh;
+    }
+
+    .stage-hero {
+        background: linear-gradient(135deg, {{ subsection.color|default:"#302b63" }} 0%, #0f172a 100%);
+        padding: 40px 30px;
+        color: white;
+        position: relative;
+        overflow: hidden;
+        border-bottom-left-radius: 24px;
+        border-bottom-right-radius: 24px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, 0.15);
+    }
+
+    .stage-hero::after {
+        content: '';
+        position: absolute;
+        top: -60px;
+        right: -60px;
+        width: 250px;
+        height: 250px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.08);
+        backdrop-filter: blur(8px);
+    }
+
+    .stage-hero::before {
+        content: '';
+        position: absolute;
+        bottom: -40px;
+        left: -40px;
+        width: 150px;
+        height: 150px;
+        border-radius: 50%;
+        background: rgba(255,255,255,0.06);
+    }
+
+    .hero-content {
+        position: relative;
+        z-index: 2;
+    }
 
     .live-card {
         background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
         color: white;
-        border-radius: 16px;
+        border-radius: 20px;
         padding: 25px;
-        box-shadow: 0 10px 25px rgba(239, 68, 68, 0.4);
+        box-shadow: 0 12px 30px rgba(239, 68, 68, 0.3);
         position: relative;
         overflow: hidden;
         animation: pulse-glow 2s infinite;
+        margin-top: -25px;
+        z-index: 10;
+        border: 1px solid rgba(255,255,255,0.2);
     }
+    
     .live-badge {
         background: white;
         color: #ef4444;
-        padding: 5px 12px;
+        padding: 6px 14px;
         border-radius: 9999px;
         font-weight: 800;
         font-size: 0.85rem;
         display: inline-flex;
         align-items: center;
-        gap: 6px;
+        gap: 8px;
         text-transform: uppercase;
         letter-spacing: 1px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
     }
+
+    .live-indicator {
+        width: 8px; 
+        height: 8px; 
+        background: #ef4444; 
+        border-radius: 50%;
+        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
+        animation: blink 1.5s infinite;
+    }
+    
     @keyframes pulse-glow {
-        0% { box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4); }
-        50% { box-shadow: 0 5px 25px rgba(239, 68, 68, 0.7); }
-        100% { box-shadow: 0 5px 15px rgba(239, 68, 68, 0.4); }
+        0% { box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3); }
+        50% { box-shadow: 0 8px 30px rgba(239, 68, 68, 0.6); }
+        100% { box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3); }
     }
+
+    @keyframes blink {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+    }
+
+    .content-body {
+        padding: 25px 30px;
+        max-width: 800px;
+        margin: 0 auto;
+    }
+
+    .section-title {
+        color: #0f172a;
+        font-size: 1.3rem;
+        font-weight: 800;
+        margin: 30px 0 20px 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        letter-spacing: -0.02em;
+    }
+
+    .section-title::before {
+        content: '';
+        display: block;
+        width: 5px;
+        height: 22px;
+        background: #302b63;
+        border-radius: 4px;
+    }
+
+    .event-card {
+        background: white;
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        border-radius: 20px;
+        padding: 20px;
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+        margin-bottom: 15px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .event-card::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 5px;
+        background: #e2e8f0;
+        transition: background 0.3s;
+    }
+
+    .event-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 15px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
+        border-color: #cbd5e1;
+    }
+
+    .event-card:hover::before {
+        background: #302b63;
+    }
+
+    .time-badge {
+        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 14px 12px;
+        text-align: center;
+        min-width: 80px;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.02);
+    }
+    
+    .time-badge .time {
+        font-weight: 800;
+        color: #0f172a;
+        font-size: 1.2rem;
+        line-height: 1.1;
+    }
+    
+    .time-badge .date {
+        font-size: 0.75rem;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-top: 6px;
+        font-weight: 600;
+        display: block;
+    }
+
+    .event-details {
+        flex: 1;
+    }
+
+    .event-details h4 {
+        margin: 0 0 6px 0;
+        color: #0f172a;
+        font-size: 1.15rem;
+        font-weight: 700;
+    }
+
+    .event-details p {
+        margin: 0;
+        color: #64748b;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+
+    .empty-state {
+        background: white;
+        border: 2px dashed #cbd5e1;
+        border-radius: 20px;
+        padding: 50px 20px;
+        text-align: center;
+        margin-top: 20px;
+        transition: all 0.3s;
+    }
+
+    .empty-state:hover {
+        border-color: #94a3b8;
+        background: #f8fafc;
+        transform: translateY(-2px);
+    }
+
+    .empty-state-icon {
+        font-size: 3rem;
+        margin-bottom: 15px;
+        opacity: 0.6;
+        display: block;
+    }
+
+    .empty-state p {
+        color: #64748b;
+        font-weight: 500;
+        font-size: 1.05rem;
+        margin: 0;
+    }
+
+    /* Past Events */
+    .past-events-btn {
+        background: white;
+        border: 1px solid #e2e8f0;
+        color: #475569;
+        font-size: 0.95rem;
+        font-weight: 600;
+        cursor: pointer;
+        padding: 12px 24px;
+        border-radius: 9999px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        transition: all 0.2s;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
+    }
+
+    .past-events-btn:hover {
+        background: #f1f5f9;
+        color: #0f172a;
+        border-color: #cbd5e1;
+        transform: translateY(-1px);
+    }
+
+    .past-event-item {
+        background: white;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 16px 20px;
+        display: flex;
+        gap: 18px;
+        align-items: center;
+        transition: all 0.2s;
+    }
+
+    .past-event-item:hover {
+        background: #f8fafc;
+        border-color: #cbd5e1;
+    }
+
 </style>
 
-<div class="container" style="max-width: 600px; margin: 0 auto; min-height: 100vh; background: #fff;">
+<div class="container stage-wrapper">
     <!-- Header with Stage Info -->
-    <div style="background: linear-gradient(135deg, {{ subsection.color }} 0%, #0f172a 100%); padding: 30px 20px; color: white; position: relative; overflow: hidden;">
-        <div style="position: relative; z-index: 2;">
+    <div class="stage-hero">
+        <div class="hero-content">
             {% if not is_iframe %}
-            <a href="javascript:window.close()" style="color: rgba(255,255,255,0.8); text-decoration: none; font-size: 0.9rem; display: inline-block; margin-bottom: 15px;">&larr; Back to Map</a>
+            <a href="javascript:window.close()" style="color: rgba(255,255,255,0.8); text-decoration: none; font-size: 0.9rem; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 24px; font-weight: 500; background: rgba(0,0,0,0.2); padding: 8px 16px; border-radius: 9999px; backdrop-filter: blur(4px); transition: all 0.2s;">
+                <span style="font-size: 1.2rem; line-height: 1;">&larr;</span> Back to Map
+            </a>
             {% endif %}
-            <h1 style="margin: 0; font-size: 2rem; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{{ subsection.name }}</h1>
-            <p style="margin: 5px 0 0 0; font-size: 1rem; opacity: 0.9;">{{ event.title }}</p>
+            <h1 style="margin: 0; font-size: 2.2rem; font-weight: 800; text-shadow: 0 2px 10px rgba(0,0,0,0.2); line-height: 1.2; letter-spacing: -0.03em;">{{ subsection.name }}</h1>
+            <p style="margin: 8px 0 0 0; font-size: 1.1rem; opacity: 0.9; font-weight: 500;">{{ event.title }}</p>
             {% if subsection.description %}
-            <p style="margin: 15px 0 0 0; font-size: 0.9rem; opacity: 0.8; max-width: 500px; line-height: 1.5;">{{ subsection.description }}</p>
+            <p style="margin: 16px 0 0 0; font-size: 1rem; opacity: 0.85; max-width: 600px; line-height: 1.6;">{{ subsection.description }}</p>
             {% endif %}
         </div>
-        <!-- Decorative Circle -->
-        <div style="position: absolute; top: -50px; right: -50px; width: 200px; height: 200px; border-radius: 50%; background: rgba(255,255,255,0.1);"></div>
     </div>
 
-    <div style="padding: 20px;">
+    <div class="content-body">
         
         <!-- LIVE NOW Section -->
         {% if live_event %}
-        <div style="margin-bottom: 30px;">
+        <div style="position: relative; z-index: 10;">
             <div class="live-card">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
-                    <span class="live-badge">
-                        <span style="width: 8px; height: 8px; background: #ef4444; border-radius: 50%;"></span>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px;">
+                    <div class="live-badge">
+                        <div class="live-indicator"></div>
                         Live Now
-                    </span>
-                    <span style="font-weight: 600; font-size: 0.9rem; opacity: 0.9;">Until {{ live_event.end_time|date:"H:i" }}</span>
+                    </div>
+                    <span style="font-weight: 600; font-size: 0.9rem; opacity: 0.95; background: rgba(0,0,0,0.25); padding: 5px 12px; border-radius: 8px; backdrop-filter: blur(4px);">Until {{ live_event.end_time|date:"H:i" }}</span>
                 </div>
                 
-                <h2 style="margin: 0 0 10px 0; font-size: 1.8rem; font-weight: 800; line-height: 1.2;">{{ live_event.title }}</h2>
+                <h2 style="margin: 0 0 12px 0; font-size: 1.8rem; font-weight: 800; line-height: 1.3; letter-spacing: -0.02em;">{{ live_event.title }}</h2>
                 
                 {% if live_event.description %}
-                <p style="margin: 0; font-size: 1rem; opacity: 0.9; line-height: 1.5;">{{ live_event.description }}</p>
+                <p style="margin: 0; font-size: 1.05rem; opacity: 0.9; line-height: 1.6; max-width: 90%;">{{ live_event.description }}</p>
                 {% endif %}
                 
                 <!-- Decorative Elements -->
-                <div style="position: absolute; bottom: -20px; right: -20px; font-size: 8rem; opacity: 0.1;">
-                    🎵
+                <div style="position: absolute; bottom: -30px; right: -20px; font-size: 10rem; opacity: 0.08; transform: rotate(-15deg); user-select: none; pointer-events: none;">
+                    🎤
                 </div>
             </div>
         </div>
         {% endif %}
 
         <!-- UPCOMING EVENTS -->
-        <h3 style="color: #334155; font-size: 1.1rem; margin: 30px 0 15px 0; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px;">Upcoming Events</h3>
+        <h3 class="section-title">Upcoming Schedule</h3>
         {% if upcoming_events %}
-            <div style="display: grid; gap: 15px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
                 {% for event in upcoming_events %}
-                <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 15px; display: flex; gap: 15px; align-items: flex-start; transition: transform 0.2s;">
-                    <div style="background: #f1f5f9; border-radius: 8px; padding: 10px; text-align: center; min-width: 60px;">
-                        <div style="font-weight: 700; color: #0f172a; font-size: 1.1rem;">{{ event.start_time|date:"H:i" }}</div>
-                        <div style="font-size: 0.75rem; color: #64748b;">{{ event.start_time|date:"M d" }}</div>
+                <div class="event-card">
+                    <div class="time-badge">
+                        <span class="time">{{ event.start_time|date:"H:i" }}</span>
+                        <span class="date">{{ event.start_time|date:"M d" }}</span>
                     </div>
-                    <div>
-                        <h4 style="margin: 0 0 5px 0; color: #1e293b; font-size: 1.1rem;">{{ event.title }}</h4>
-                        <p style="margin: 0; color: #64748b; font-size: 0.9rem;">{{ event.description|truncatechars:80 }}</p>
+                    <div class="event-details">
+                        <h4>{{ event.title }}</h4>
+                        {% if event.description %}
+                        <p>{{ event.description|truncatechars:100 }}</p>
+                        {% endif %}
                     </div>
                 </div>
                 {% endfor %}
             </div>
         {% else %}
-            <p style="color: #94a3b8; font-style: italic;">No upcoming events scheduled.</p>
+            <div class="empty-state">
+                <span class="empty-state-icon">📅</span>
+                <p>No upcoming events scheduled at this stage.</p>
+            </div>
         {% endif %}
 
         <!-- PAST EVENTS -->
         {% if past_events %}
-        <div style="margin-top: 40px;">
-            <button onclick="document.getElementById('past-events-list').style.display = document.getElementById('past-events-list').style.display === 'none' ? 'grid' : 'none'" 
-                style="background: none; border: none; color: #94a3b8; font-size: 0.9rem; cursor: pointer; padding: 0; display: flex; align-items: center;">
-                Show Past Events <span style="margin-left: 5px;">▼</span>
+        <div style="margin-top: 50px; text-align: center;">
+            <button onclick="
+                const list = document.getElementById('past-events-list');
+                const icon = document.getElementById('past-events-icon');
+                if (list.style.display === 'none') {
+                    list.style.display = 'flex';
+                    icon.style.transform = 'rotate(180deg)';
+                } else {
+                    list.style.display = 'none';
+                    icon.style.transform = 'rotate(0deg)';
+                }
+            " class="past-events-btn">
+                View Past Events 
+                <svg id="past-events-icon" style="transition: transform 0.3s;" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
             </button>
-            <div id="past-events-list" style="display: none; gap: 10px; margin-top: 15px; opacity: 0.7;">
+            <div id="past-events-list" style="display: none; flex-direction: column; gap: 12px; margin-top: 24px; opacity: 0.8; text-align: left;">
                 {% for event in past_events %}
-                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; display: flex; gap: 12px;">
-                    <div style="font-size: 0.9rem; font-weight: 600; color: #64748b;">{{ event.start_time|date:"H:i" }}</div>
-                    <div style="font-size: 0.9rem; color: #475569;">{{ event.title }}</div>
+                <div class="past-event-item">
+                    <div style="font-size: 1.05rem; font-weight: 800; color: #64748b; min-width: 60px;">{{ event.start_time|date:"H:i" }}</div>
+                    <div style="font-size: 1.05rem; font-weight: 600; color: #334155;">{{ event.title }}</div>
                 </div>
                 {% endfor %}
             </div>

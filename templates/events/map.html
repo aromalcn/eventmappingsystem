@@ -259,6 +259,7 @@
                         </div>
                         <p style="margin: 0; font-size: 0.85rem; color: #666;">📍 ${event.location_name}</p>
                         <p style="margin: 5px 0 0 0; font-size: 0.8rem; color: #999;">📅 ${event.date}</p>
+                        <p style="margin: 5px 0 0 0; font-size: 0.8rem; color: #666;">👤 By: <strong>${event.organizer || 'Unknown'}</strong></p>
                     `;
                 
                     listItem.addEventListener('click', () => {
@@ -586,6 +587,7 @@
                         <h3 style="margin: 0 0 5px 0; font-size: 1rem; color: #302b63;">${event.title}</h3>
                         <p style="margin: 0; font-size: 0.85rem; color: #666;">📍 ${event.location_name}</p>
                         <p style="margin: 5px 0 0 0; font-size: 0.8rem; color: #999;">📅 ${event.date}</p>
+                        <p style="margin: 5px 0 0 0; font-size: 0.8rem; color: #666;">👤 By: <strong>${event.organizer || 'Unknown'}</strong></p>
                         <p style="margin: 5px 0 0 0; font-size: 0.8rem; color: #0f172a; font-weight: 600;">📏 ${event.distance} km away</p>
                     `;
                     
