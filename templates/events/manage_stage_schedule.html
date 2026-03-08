@@ -1,29 +1,51 @@
 {% extends 'base.html' %}
 {% block content %}
 <div class="container" style="max-width: 800px; margin: 40px auto; padding: 20px;">
-    <div style="margin-bottom: 30px; border-bottom: 1px solid #eee; padding-bottom: 20px; display: flex; justify-content: space-between; align-items: flex-end;">
-        <div>
-            <a href="{% url 'manage_event_stages' subsection.event.id %}" style="text-decoration: none; color: #64748b; font-size: 0.9rem;">&larr; Back to Stages</a>
-            <h2 style="margin-top: 15px; margin-bottom: 5px; color: #0f172a;">Schedule: {{ subsection.name }}</h2>
-            <p style="margin: 0; color: #64748b;">Managing schedule for {{ subsection.event.title }}</p>
+    <div style="margin-bottom: 60px; border-bottom: 2px solid #f8fafc; padding-bottom: 40px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 40px;">
+        <div style="flex: 1; min-width: 300px;">
+            <a href="{% url 'manage_event_stages' subsection.event.id %}" style="text-decoration: none; color: #64748b; font-size: 0.95rem; display: flex; align-items: center; gap: 10px; margin-bottom: 30px; transition: color 0.2s; font-weight: 500;">
+                <span style="font-size: 1.2rem; line-height: 1;">&larr;</span> Back to Stages
+            </a>
+            <h2 style="margin: 0; color: #0f172a; font-size: 2.2rem; font-weight: 800; letter-spacing: -0.03em; line-height: 1.2;">Schedule: {{ subsection.name }}</h2>
+            <p style="margin: 15px 0 0 0; color: #64748b; font-size: 1.1rem; font-weight: 500;">
+                Managing schedule for <span style="color: #334155; font-weight: 600;">{{ subsection.event.title }}</span>
+            </p>
         </div>
-        <a href="{% url 'add_stage_event' subsection.id %}" class="btn btn-primary" style="text-decoration: none; padding: 10px 20px; border-radius: 8px; font-size: 0.95rem; background-color: #0f172a; color: white;">+ Add Event</a>
+        <div style="padding-top: 10px;">
+            <a href="{% url 'add_stage_event' subsection.id %}" class="btn btn-primary" style="text-decoration: none; padding: 14px 28px; border-radius: 12px; font-size: 1rem; font-weight: 700; background-color: #0f172a; color: white; box-shadow: 0 10px 25px rgba(15, 23, 42, 0.2); transition: all 0.3s ease; display: inline-block; white-space: nowrap;">
+                + Add New Event
+            </a>
+        </div>
     </div>
 
     {% if events %}
         <div style="display: flex; flex-direction: column; gap: 15px;">
             {% for event in events %}
-            <div style="background: white; padding: 15px 20px; border-radius: 10px; border-left: 4px solid {{ subsection.color }}; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-                    <h3 style="margin: 0; color: #334155; font-size: 1.1rem;">{{ event.title }}</h3>
-                    <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 5px;">
-                        <div style="font-size: 0.85rem; color: #64748b; font-weight: 500;">
+            <div class="{% if event.start_time <= now and event.end_time >= now %}live-event-card{% endif %}" style="background: white; padding: 25px 30px; border-radius: 12px; border-left: 6px solid {{ subsection.color }}; box-shadow: 0 4px 15px rgba(0,0,0,0.05); transition: all 0.3s ease; position: relative;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px;">
+                    <div style="flex: 1;">
+                        <div style="display: flex; flex-direction: column; gap: 12px;">
+                            {% if event.start_time <= now and event.end_time >= now %}
+                                <div style="display: flex;">
+                                    <span style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: white; padding: 6px 14px; border-radius: 100px; font-size: 0.7rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.1em; display: inline-flex; align-items: center; gap: 8px; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);">
+                                        <span style="width: 8px; height: 8px; background-color: white; border-radius: 50%; display: inline-block; box-shadow: 0 0 5px white; animation: ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;"></span>
+                                        Live Now
+                                    </span>
+                                </div>
+                            {% endif %}
+                            <h3 style="margin: 0; color: #0f172a; font-size: 1.4rem; font-weight: 800; letter-spacing: -0.01em;">{{ event.title }}</h3>
+                        </div>
+                    </div>
+                    <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 12px;">
+                        <div style="font-size: 0.9rem; color: #64748b; font-weight: 600; background: #f1f5f9; padding: 6px 12px; border-radius: 8px;">
                             {{ event.start_time|date:"M d, H:i" }} - {{ event.end_time|date:"H:i" }}
                         </div>
-                        <a href="{% url 'edit_stage_event' event.id %}" style="font-size: 0.8rem; color: #3b82f6; text-decoration: none; border: 1px solid #3b82f6; padding: 2px 8px; border-radius: 4px; display: inline-block;">Edit</a>
+                        <a href="{% url 'edit_stage_event' event.id %}" class="btn btn-secondary" style="font-size: 0.85rem; padding: 6px 16px; border-radius: 6px; text-decoration: none;">Edit Details</a>
                     </div>
                 </div>
-                <p style="margin: 0; color: #64748b; font-size: 0.95rem;">{{ event.description|default:"No description" }}</p>
+                <div style="border-top: 1px solid #f1f5f9; padding-top: 15px;">
+                    <p style="margin: 0; color: #475569; font-size: 1rem; line-height: 1.6;">{{ event.description|default:"No description" }}</p>
+                </div>
             </div>
             {% endfor %}
         </div>
@@ -34,4 +56,35 @@
         </div>
     {% endif %}
 </div>
+
+
+<style>
+    @keyframes pulse {
+        0% { transform: scale(1); box-shadow: 0 2px 10px rgba(239, 68, 68, 0.4); }
+        50% { transform: scale(1.02); box-shadow: 0 4px 15px rgba(239, 68, 68, 0.6); }
+        100% { transform: scale(1); box-shadow: 0 2px 10px rgba(239, 68, 68, 0.4); }
+    }
+
+    @keyframes ping {
+        0% { transform: scale(0.8); opacity: 1; }
+        70%, 100% { transform: scale(2.5); opacity: 0; }
+    }
+
+    .live-event-card {
+        border: 2px solid #ef4444 !important;
+        background: #fffafa !important;
+        box-shadow: 0 10px 30px rgba(239, 68, 68, 0.1) !important;
+    }
+    
+    .live-event-card::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 150px;
+        height: 150px;
+        background: radial-gradient(circle at top right, rgba(239, 68, 68, 0.05), transparent 70%);
+        pointer-events: none;
+    }
+</style>
 {% endblock %}

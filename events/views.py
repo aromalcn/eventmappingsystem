@@ -282,8 +282,28 @@ def admin_dashboard(request):
 @organizer_required
 def organizer_dashboard(request):
     # Only show events owned by the organizer
-    events = Event.objects.filter(organizer=request.user)
-    return render(request, 'events/organizer_dashboard.html', {'events': events})
+    events = Event.objects.filter(organizer=request.user).order_by('-date')
+    
+    # Calculate analytics
+    total_events = events.count()
+    now = timezone.now()
+    upcoming_events = events.filter(date__gte=now).count()
+    past_events = events.filter(date__lt=now).count()
+    recent_events = events[:5] # Get 5 most recent
+    
+    context = {
+        'total_events': total_events,
+        'upcoming_events': upcoming_events,
+        'past_events': past_events,
+        'recent_events': recent_events
+    }
+    return render(request, 'events/organizer_dashboard.html', context)
+
+@login_required
+@organizer_required
+def organizer_events_list(request):
+    events = Event.objects.filter(organizer=request.user).order_by('-date')
+    return render(request, 'events/organizer_events.html', {'events': events})
 
 @login_required
 def user_dashboard(request):
@@ -333,7 +353,11 @@ def manage_stage_schedule(request, subsection_id):
         return redirect('organizer_dashboard')
 
     events = subsection.scheduled_events.all().order_by('start_time')
-    return render(request, 'events/manage_stage_schedule.html', {'subsection': subsection, 'events': events})
+    return render(request, 'events/manage_stage_schedule.html', {
+        'subsection': subsection, 
+        'events': events,
+        'now': timezone.now()
+    })
 
 @login_required
 @organizer_required
@@ -408,9 +432,15 @@ def stage_events_public_view(request, subsection_id):
     subsection = get_object_or_404(EventSubsection, id=subsection_id)
     now = timezone.now()
     
-    upcoming_events = subsection.scheduled_events.filter(start_time__gte=now).order_by('start_time')
-    past_events = subsection.scheduled_events.filter(end_time__lt=now).order_by('-start_time')
+    # We want live_event to be truly live
     live_event = subsection.scheduled_events.filter(start_time__lte=now, end_time__gte=now).first()
+    
+    # Upcoming events should be after now, excluding the one currently live
+    upcoming_events = subsection.scheduled_events.filter(start_time__gt=now).order_by('start_time')
+    if live_event:
+        upcoming_events = upcoming_events.exclude(id=live_event.id)
+        
+    past_events = subsection.scheduled_events.filter(end_time__lt=now).order_by('-start_time')
     
     is_iframe = request.GET.get('iframe') == 'true'
     
@@ -420,6 +450,7 @@ def stage_events_public_view(request, subsection_id):
         'upcoming_events': upcoming_events,
         'past_events': past_events,
         'event': subsection.event,
-        'is_iframe': is_iframe
+        'is_iframe': is_iframe,
+        'now': now
     })
 

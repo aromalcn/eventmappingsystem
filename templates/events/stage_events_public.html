@@ -67,32 +67,54 @@
     }
 
     .live-card {
-        background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+        background: linear-gradient(135deg, #f01d1d 0%, #b91c1c 100%);
         color: white;
-        border-radius: 20px;
-        padding: 25px;
-        box-shadow: 0 12px 30px rgba(239, 68, 68, 0.3);
+        border-radius: 24px;
+        padding: 30px;
+        box-shadow: 0 20px 40px rgba(239, 68, 68, 0.25);
         position: relative;
         overflow: hidden;
-        animation: pulse-glow 2s infinite;
-        margin-top: -25px;
+        margin-top: -40px;
         z-index: 10;
         border: 1px solid rgba(255,255,255,0.2);
     }
     
+    .live-card::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: radial-gradient(circle at top right, rgba(255,255,255,0.15) 0%, transparent 60%);
+        pointer-events: none;
+    }
+
+    .live-card .microphone-bg {
+        position: absolute;
+        bottom: -20px;
+        right: -10px;
+        font-size: 8rem;
+        opacity: 0.12;
+        transform: rotate(-15deg);
+        user-select: none;
+        pointer-events: none;
+    }
+
     .live-badge {
         background: white;
         color: #ef4444;
-        padding: 6px 14px;
-        border-radius: 9999px;
+        padding: 6px 16px;
+        border-radius: 100px;
         font-weight: 800;
-        font-size: 0.85rem;
+        font-size: 0.75rem;
         display: inline-flex;
         align-items: center;
         gap: 8px;
         text-transform: uppercase;
-        letter-spacing: 1px;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        letter-spacing: 1.2px;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        border: 1px solid rgba(255,255,255,0.3);
     }
 
     .live-indicator {
@@ -100,20 +122,35 @@
         height: 8px; 
         background: #ef4444; 
         border-radius: 50%;
-        box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2);
-        animation: blink 1.5s infinite;
+        position: relative;
     }
     
-    @keyframes pulse-glow {
-        0% { box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3); }
-        50% { box-shadow: 0 8px 30px rgba(239, 68, 68, 0.6); }
-        100% { box-shadow: 0 8px 20px rgba(239, 68, 68, 0.3); }
+    .live-indicator::after {
+        content: '';
+        position: absolute;
+        width: 100%;
+        height: 100%;
+        background: inherit;
+        border-radius: inherit;
+        animation: badge-ping 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
     }
 
-    @keyframes blink {
-        0% { opacity: 1; }
-        50% { opacity: 0.5; }
-        100% { opacity: 1; }
+    .time-until {
+        font-weight: 700;
+        font-size: 0.8rem;
+        color: white;
+        background: rgba(0, 0, 0, 0.2);
+        padding: 6px 14px;
+        border-radius: 100px;
+        backdrop-filter: blur(4px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    @keyframes badge-ping {
+        0% { transform: scale(1); opacity: 0.8; }
+        70%, 100% { transform: scale(3); opacity: 0; }
     }
 
     .content-body {
@@ -314,28 +351,26 @@
 
     <div class="content-body">
         
-        <!-- LIVE NOW Section -->
         {% if live_event %}
         <div style="position: relative; z-index: 10;">
             <div class="live-card">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 18px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
                     <div class="live-badge">
                         <div class="live-indicator"></div>
                         Live Now
                     </div>
-                    <span style="font-weight: 600; font-size: 0.9rem; opacity: 0.95; background: rgba(0,0,0,0.25); padding: 5px 12px; border-radius: 8px; backdrop-filter: blur(4px);">Until {{ live_event.end_time|date:"H:i" }}</span>
+                    <div class="time-until">
+                        Until {{ live_event.end_time|date:"H:i" }}
+                    </div>
                 </div>
                 
-                <h2 style="margin: 0 0 12px 0; font-size: 1.8rem; font-weight: 800; line-height: 1.3; letter-spacing: -0.02em;">{{ live_event.title }}</h2>
+                <h2 style="margin: 0 0 10px 0; font-size: 2rem; font-weight: 800; line-height: 1.2; letter-spacing: -0.02em;">{{ live_event.title }}</h2>
                 
                 {% if live_event.description %}
-                <p style="margin: 0; font-size: 1.05rem; opacity: 0.9; line-height: 1.6; max-width: 90%;">{{ live_event.description }}</p>
+                <p style="margin: 0; font-size: 1.1rem; opacity: 0.9; line-height: 1.6; max-width: 85%; font-weight: 500;">{{ live_event.description }}</p>
                 {% endif %}
                 
-                <!-- Decorative Elements -->
-                <div style="position: absolute; bottom: -30px; right: -20px; font-size: 10rem; opacity: 0.08; transform: rotate(-15deg); user-select: none; pointer-events: none;">
-                    🎤
-                </div>
+                <div class="microphone-bg">🎤</div>
             </div>
         </div>
         {% endif %}
@@ -345,13 +380,18 @@
         {% if upcoming_events %}
             <div style="display: flex; flex-direction: column; gap: 4px;">
                 {% for event in upcoming_events %}
-                <div class="event-card">
+                <div class="event-card" {% if event.start_time <= now and event.end_time >= now %}style="border: 2px solid #ef4444;"{% endif %}>
                     <div class="time-badge">
                         <span class="time">{{ event.start_time|date:"H:i" }}</span>
                         <span class="date">{{ event.start_time|date:"M d" }}</span>
                     </div>
                     <div class="event-details">
-                        <h4>{{ event.title }}</h4>
+                        <h4 style="display: flex; align-items: center; gap: 8px;">
+                            {{ event.title }}
+                            {% if event.start_time <= now and event.end_time >= now %}
+                                <span style="background: #ef4444; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; font-weight: 800; text-transform: uppercase;">Live Now</span>
+                            {% endif %}
+                        </h4>
                         {% if event.description %}
                         <p>{{ event.description|truncatechars:100 }}</p>
                         {% endif %}

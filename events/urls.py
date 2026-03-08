@@ -15,6 +15,7 @@ urlpatterns = [
     path('dashboard/user/edit/<int:user_id>/', views.edit_user_view, name='edit_user'),
     path('dashboard/user/delete/<int:user_id>/', views.delete_user_view, name='delete_user'),
     path('dashboard/organizer/', views.organizer_dashboard, name='organizer_dashboard'),
+    path('dashboard/organizer/events/', views.organizer_events_list, name='organizer_events_list'),
     path('organizer/event/<int:event_id>/stages/', views.manage_event_stages, name='manage_event_stages'),
     path('organizer/stage/<int:subsection_id>/schedule/', views.manage_stage_schedule, name='manage_stage_schedule'),
     path('organizer/stage/<int:subsection_id>/add-event/', views.add_stage_event, name='add_stage_event'),
